@@ -150,6 +150,40 @@
         padding: 4px;
       }
     }
+
+    /* Estilos específicos para a tabela de configuração */
+    #tabela-config th {
+      padding: 8px 4px;
+      vertical-align: top;
+    }
+
+    #tabela-config th span {
+      display: block;
+      font-size: 0.8em;
+      font-weight: normal;
+      margin-top: 4px;
+    }
+
+    #tabela-config td {
+      padding: 8px 4px;
+    }
+
+    /* Ajuste das larguras das colunas */
+    #tabela-config .coluna-hora {
+      width: 80px;
+    }
+
+    #tabela-config .coluna-minuto {
+      width: 60px;
+    }
+
+    #tabela-config .coluna-intervalo {
+      width: 80px;
+    }
+
+    #tabela-config .coluna-ativo {
+      width: 60px;
+    }
   </style>
 </head>
 <body>
@@ -175,11 +209,11 @@
   <table id="tabela-config">
     <thead>
       <tr>
-        <th>Hora</th>
-        <th>Início (min)</th>
-        <th>Fim (min)</th>
-        <th>Intervalo (min)</th>
-        <th>Ativo</th>
+        <th class="coluna-hora">Hora</th>
+        <th class="coluna-minuto">Início<span>(min)</span></th>
+        <th class="coluna-minuto">Fim<span>(min)</span></th>
+        <th class="coluna-intervalo">Intervalo<span>(min)</span></th>
+        <th class="coluna-ativo">Ativo</th>
       </tr>
     </thead>
     <tbody>
