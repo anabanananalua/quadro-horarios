@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Quadro de Saída de Veículos</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f7f7f7;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    table {
+      width: 90%;
+      margin: 20px auto;
+      border-collapse: collapse;
+      background-color: white;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 12px;
+      text-align: center;
+    }
+    th {
+      background-color: #004d99;
+      color: white;
+    }
+    caption {
+      caption-side: top;
+      font-size: 1.2em;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    
+    /* Destaque para o veículo com maior número */
+    .veiculo-maior {
+      font-weight: bold;
+      background-color: #2196f3 !important;
+      color: white !important;
+    }
+
+    /* Configurações */
+    .config-panel {
+      width: 90%;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: white;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .config-panel input {
+      width: 60px;
+      padding: 5px;
+      margin: 5px;
+    }
+    .config-panel label {
+      margin-right: 10px;
+    }
+    .minuto-input {
+      width: 50px !important;
+    }
+    .hora-fixa {
+      font-weight: bold;
+      background-color: #f5f5f5;
+    }
+    .resumo {
+      width: 90%;
+      margin: 20px auto;
+      padding: 15px;
+      background-color: #e3f2fd;
+      border-radius: 5px;
+      text-align: center;
+      font-size: 1.2em;
+      font-weight: bold;
+      color: #004d99;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Quadro de Horários de Saída e Chegada</h1>
+
+<div class="config-panel">
+  <h3>Configurações de Tempo</h3>
+  <div>
+    <label>Tempo de Percurso:</label>
+    <input type="number" id="horasPercurso" value="1" min="0" max="23"> horas
+    <input type="number" id="minutosPercurso" value="36" min="0" max="59"> minutos
+    <input type="number" id="segundosPercurso" value="0" min="0" max="59"> segundos
+  </div>
+  <div style="margin-top: 10px;">
+    <label>Tempo de Descanso:</label>
+    <input type="number" id="tempoDescanso" value="5" min="0" max="60"> minutos
+  </div>
+</div>
+
+<div class="config-panel">
+  <h3>Configurações de Janelas</h3>
+  <table id="tabela-config">
+    <thead>
+      <tr>
+        <th>Hora</th>
+        <th>Início (min)</th>
+        <th>Fim (min)</th>
+        <th>Intervalo (min)</th>
+        <th>Ativo</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Será preenchido via JS -->
+    </tbody>
+  </table>
+</div>
+
+<table id="tabela-veiculos">
+  <caption>Quadro de Horários</caption>
+  <thead>
+    <tr>
+      <th>Veículo</th>
+      <th>Saída</th>
+      <th>Chegada</th>
+      <th>Disponível</th>
+    </tr>
+  </thead>
+  <tbody>
+    <!-- Dados serão inseridos via JS -->
+  </tbody>
+</table>
+
+<div id="resumo" class="resumo">
+  Número de veículos necessários para atender o quadro: <span id="total-veiculos">0</span>
+</div>
+
+<script>
+  // Configuração inicial das janelas (24 horas)
+  const janelas = Array.from({length: 24}, (_, i) => ({
+    hora: `${String(i).padStart(2, '0')}:00`,
+    inicioMinuto: 0,
+    fimMinuto: 59,
+    intervaloDeSaida: 6,
+    ativo: false
+  }));
+
+  function stringParaData(horario, minuto = 0) {
+    const [h] = horario.split(":").map(Number);
+    const agora = new Date();
+    agora.setHours(h, minuto, 0, 0);
+    return agora;
+  }
+
+  function formatarHorario(data) {
+    return data.toTimeString().substring(0, 8);
+  }
+
+  const veiculosDisponiveis = [];
+  let maiorNumeroVeiculo = 0;
+  let usados = 0;
+  let todasLinhas = [];
+
+  function obterVeiculoDisponivel(horarioSaida) {
+    // Primeiro tenta reutilizar um veículo disponível, mantendo a ordem numérica
+    veiculosDisponiveis.sort((a, b) => {
+      const numA = parseInt(a.nome.split(' ')[1]);
+      const numB = parseInt(b.nome.split(' ')[1]);
+      return numA - numB;
+    });
+
+    for (let i = 0; i < veiculosDisponiveis.length; i++) {
+      if (veiculosDisponiveis[i].disponivel <= horarioSaida) {
+        return veiculosDisponiveis.splice(i, 1)[0].nome;
+      }
+    }
+
+    // Se não encontrou veículo disponível, cria um novo
+    // Encontra o próximo número disponível
+    const numerosUsados = new Set([
+      ...veiculosDisponiveis.map(v => parseInt(v.nome.split(' ')[1])),
+      ...Array.from({length: usados}, (_, i) => i + 1)
+    ]);
+    
+    let novoNumero = 1;
+    while (numerosUsados.has(novoNumero)) {
+      novoNumero++;
+    }
+
+    maiorNumeroVeiculo = Math.max(maiorNumeroVeiculo, novoNumero);
+    const novoNome = `Veículo ${novoNumero}`;
+    usados++;
+    return novoNome;
+  }
+
+  function atualizarTabela() {
+    const tabela = document.querySelector("#tabela-veiculos tbody");
+    tabela.innerHTML = '';
+    veiculosDisponiveis.length = 0;
+    usados = 0;
+    maiorNumeroVeiculo = 0;
+    todasLinhas = [];
+
+    const tempoPercurso = {
+      horas: parseInt(document.getElementById('horasPercurso').value) || 0,
+      minutos: parseInt(document.getElementById('minutosPercurso').value) || 0,
+      segundos: parseInt(document.getElementById('segundosPercurso').value) || 0
+    };
+
+    const tempoDescanso = parseInt(document.getElementById('tempoDescanso').value) || 5;
+
+    janelas.forEach(janela => {
+      if (!janela.ativo) return;
+
+      const inicioData = stringParaData(janela.hora, janela.inicioMinuto);
+      const fimData = stringParaData(janela.hora, janela.fimMinuto);
+
+      let atual = new Date(inicioData);
+
+      while (atual <= fimData) {
+        const saida = new Date(atual);
+        const chegada = new Date(saida);
+        chegada.setHours(chegada.getHours() + tempoPercurso.horas);
+        chegada.setMinutes(chegada.getMinutes() + tempoPercurso.minutos);
+        chegada.setSeconds(chegada.getSeconds() + tempoPercurso.segundos);
+        
+        // Calcula quando o veículo estará disponível (chegada + tempo de descanso)
+        const disponivel = new Date(chegada);
+        disponivel.setMinutes(disponivel.getMinutes() + tempoDescanso);
+
+        const veiculo = obterVeiculoDisponivel(saida);
+        veiculosDisponiveis.push({ nome: veiculo, disponivel: disponivel });
+
+        const row = document.createElement("tr");
+        
+        const veiculoCell = document.createElement("td");
+        veiculoCell.textContent = veiculo;
+        
+        const saidaCell = document.createElement("td");
+        const chegadaCell = document.createElement("td");
+        const disponivelCell = document.createElement("td");
+        
+        saidaCell.textContent = formatarHorario(saida);
+        chegadaCell.textContent = formatarHorario(chegada);
+        disponivelCell.textContent = formatarHorario(disponivel);
+        
+        row.appendChild(veiculoCell);
+        row.appendChild(saidaCell);
+        row.appendChild(chegadaCell);
+        row.appendChild(disponivelCell);
+        
+        todasLinhas.push({
+          row: row,
+          veiculoCell: veiculoCell,
+          numeroVeiculo: parseInt(veiculo.split(' ')[1]),
+          hora: parseInt(janela.hora)
+        });
+        
+        tabela.appendChild(row);
+
+        atual.setMinutes(atual.getMinutes() + janela.intervaloDeSaida);
+      }
+    });
+
+    // Após processar todas as linhas, marca o veículo com maior número
+    todasLinhas.forEach(linha => {
+      if (linha.numeroVeiculo === maiorNumeroVeiculo && linha.hora === 23) {
+        linha.veiculoCell.classList.add('veiculo-maior');
+      }
+    });
+
+    // Atualiza o resumo com o número total de veículos
+    document.getElementById('total-veiculos').textContent = maiorNumeroVeiculo;
+  }
+
+  // Configuração da tabela de configuração
+  const tabelaConfig = document.querySelector("#tabela-config tbody");
+  janelas.forEach((janela, index) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td class="hora-fixa">${janela.hora}</td>
+      <td><input type="number" class="minuto-input" value="${janela.inicioMinuto}" min="0" max="59" 
+          onchange="alterarInicioMinuto(${index}, this.value)"></td>
+      <td><input type="number" class="minuto-input" value="${janela.fimMinuto}" min="0" max="59" 
+          onchange="alterarFimMinuto(${index}, this.value)"></td>
+      <td><input type="number" value="${janela.intervaloDeSaida}" min="1" max="60" 
+          onchange="alterarIntervalo(${index}, this.value)"></td>
+      <td><input type="checkbox" ${janela.ativo ? 'checked' : ''} 
+          onchange="alterarAtivo(${index}, this.checked)"></td>
+    `;
+    tabelaConfig.appendChild(row);
+  });
+
+  function alterarInicioMinuto(index, valor) {
+    janelas[index].inicioMinuto = parseInt(valor);
+    atualizarTabela();
+  }
+
+  function alterarFimMinuto(index, valor) {
+    janelas[index].fimMinuto = parseInt(valor);
+    atualizarTabela();
+  }
+
+  function alterarIntervalo(index, valor) {
+    janelas[index].intervaloDeSaida = parseInt(valor);
+    atualizarTabela();
+  }
+
+  function alterarAtivo(index, valor) {
+    janelas[index].ativo = valor;
+    atualizarTabela();
+  }
+
+  // Atualiza quando mudar configurações de tempo
+  document.getElementById('horasPercurso').onchange = atualizarTabela;
+  document.getElementById('minutosPercurso').onchange = atualizarTabela;
+  document.getElementById('segundosPercurso').onchange = atualizarTabela;
+
+  // Adiciona evento para o tempo de descanso
+  document.getElementById('tempoDescanso').onchange = atualizarTabela;
+
+  // Inicializa a tabela
+  atualizarTabela();
+</script>
+
+</body>
+</html>
